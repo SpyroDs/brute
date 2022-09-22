@@ -45,6 +45,7 @@
 /cam
 /cam/realmonitor
 /cam/realmonitor?channel=0&subtype=0
+/cam/realmonitor?channel=0&subtype=1
 /cam/realmonitor?channel=1&subtype=0
 /cam/realmonitor?channel=1&subtype=1
 /cam/realmonitor?channel=1&subtype=1&unicast=true&proto=Onvif
@@ -62,6 +63,8 @@
 /ch0
 /ch00/0
 /ch001.sdp
+/ch01/0
+/ch01/1
 /ch01.264
 /ch01.264?
 /ch01.264?ptype=tcp
@@ -192,3 +195,19 @@
 /videostream.asf
 /vis
 /wfov
+/unicast/c1/s0/live
+/unicast/c1/s1/live
+/unicast/c1/s2/live
+/unicast/c2/s0/live
+/unicast/c2/s1/live
+/unicast/c2/s2/live
+/unicast/c3/s0/live
+/unicast/c3/s1/live
+/unicast/c3/s2/live
+/media/video
+/media/video2
+/media/video3
+/LiveChannel/0/media.smp
+/LiveChannel/1/media.smp
+/stream1
+/
