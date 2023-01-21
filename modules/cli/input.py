@@ -2,8 +2,8 @@ import argparse
 from pathlib import Path
 from typing import Any
 
-from rtspbrute import  DEFAULT_CREDENTIALS, DEFAULT_ROUTES
-
+DEFAULT_ROUTES = Path(__file__).parent / "../../routes.txt"
+DEFAULT_CREDENTIALS = Path(__file__).parent / "../../credentials.txt"
 
 class CustomHelpFormatter(argparse.HelpFormatter):
     def __init__(self, prog):
