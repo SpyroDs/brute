@@ -29,23 +29,3 @@ def _digest_auth(option, ip, port, path, credentials, realm, nonce):
         f'uri="{uri}", '
         f'response="{response}"'
     )
-
-
-def describe(ip, port, path, cseq, credentials, realm=None, nonce=None):
-    if credentials == ":":
-        auth_str = ""
-    elif realm:
-        auth_str = (
-            f"{_digest_auth('DESCRIBE', ip, port, path, credentials, realm, nonce)}\r\n"
-        )
-    else:
-        auth_str = f"{_basic_auth(credentials)}\r\n"
-
-    return (
-        f"DESCRIBE rtsp://{ip}:{port}{path} RTSP/1.0\r\n"
-        f"CSeq: {cseq}\r\n"
-        f"{auth_str}"
-        "LibVLC/3.0.17.3 (LIVE555 Streaming Media v2016.11.28)\r\n"
-        "Accept: application/sdp\r\n"
-        "\r\n"
-    )

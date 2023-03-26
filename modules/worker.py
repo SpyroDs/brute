@@ -5,7 +5,7 @@ from rich.progress import TaskID
 
 from modules.attack import attack_credentials, attack_route, get_screenshot
 from modules.cli.output import ProgressBar
-from modules.rtsp import RTSPClient
+from modules.rtsp import Target
 from modules.utils import append_result, append_error_brute_creds, append_error_brute_routes, append_error_screenshot
 
 PROGRESS_BAR: ProgressBar
@@ -17,7 +17,7 @@ LOCK = RLock()
 
 def brute_routes(input_queue: Queue, output_queue: Queue) -> None:
     while True:
-        target: RTSPClient = input_queue.get()
+        target: Target = input_queue.get()
         if target is None:
             break
 
@@ -34,7 +34,7 @@ def brute_routes(input_queue: Queue, output_queue: Queue) -> None:
 
 def brute_credentials(input_queue: Queue, output_queue: Queue) -> None:
     while True:
-        target: RTSPClient = input_queue.get()
+        target: Target = input_queue.get()
         if target is None:
             break
 

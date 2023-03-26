@@ -3,18 +3,21 @@ from pathlib import Path
 from typing import List
 
 import av
+from sqlalchemy.orm import Session
 
-from modules.cli.output import console
-from modules.rtsp import RTSPClient, Status
+from modules.db import Result
+from modules.rtsp import Target, Status
 from modules.utils import escape_chars, append_request_log, append_error_brute_empty
 
 ROUTES: List[str]
 CREDENTIALS: List[str]
 PORTS: List[int]
 PICS_FOLDER: Path
+DB_SESSION: Session
 
 DUMMY_ROUTE = "/0x8b6c42"
 MAX_SCREENSHOT_TRIES = 2
+
 
 # 401, 403: credentials are wrong but the route might be okay.
 # 404: route is incorrect but the credentials might be okay.
@@ -33,7 +36,7 @@ logger = logging.getLogger()
 logger_is_enabled = True
 
 
-def attack(target: RTSPClient, port=None, route=None, credentials=None):
+def attack(target: Target, port=None, route=None, credentials=None, proxy=None) -> bool:
     if port is None:
         port = target.port
     if route is None:
@@ -41,11 +44,12 @@ def attack(target: RTSPClient, port=None, route=None, credentials=None):
     if credentials is None:
         credentials = target.credentials
 
-    attack_url = RTSPClient.get_rtsp_url(target.ip, port, credentials, route)
-    print(attack_url)
+
+    attack_url = Target.get_rtsp_url(target.ip, port, credentials, route)
 
     # Create socket connection.
     connected = target.connect(port)
+    # TODO Add result here
     if not connected:
         if logger_is_enabled:
             exc_info = (
@@ -68,7 +72,7 @@ def attack(target: RTSPClient, port=None, route=None, credentials=None):
 
     if not authorized:
         if logger_is_enabled:
-            attack_url = RTSPClient.get_rtsp_url(target.ip, port, credentials, route)
+            attack_url = Target.get_rtsp_url(target.ip, port, credentials, route)
             exc_info = (
                 target.last_error if target.status is Status.UNIDENTIFIED else None
             )
@@ -79,12 +83,19 @@ def attack(target: RTSPClient, port=None, route=None, credentials=None):
     return True
 
 
-def attack_route(target: RTSPClient):
+def attack_route(target: Target):
     # If the stream responds positively to the dummy route, it means
     # it doesn't require (or respect the RFC) a route and the attack
     # can be skipped.
+
+    session = DB_SESSION()
+    result = Result(ip_address=str(target.ip), port=int(target.port))
+    session.add(result)
+    session.commit()
+
     for port in PORTS:
         ok = attack(target, port=port, route=DUMMY_ROUTE)
+
         if ok and any(code in target.data for code in ROUTE_OK_CODES):
             target.port = port
             target.routes.append("/")
@@ -104,9 +115,8 @@ def attack_route(target: RTSPClient):
     # target.disconnect()
 
 
-def attack_credentials(target: RTSPClient):
+def attack_credentials(target: Target):
     def _log_working_stream():
-        console.print("Working stream at", target)
         if logger_is_enabled:
             logger.debug(
                 f"Working stream at {target} with {target.auth_method.name} auth"
@@ -161,10 +171,6 @@ def get_screenshot(rtsp_url: str, tries=1):
                 for frame in container.decode(video=0):
                     frame.to_image().save(file_path)
                     break
-                console.print(
-                    f"[bold]Captured screenshot for",
-                    f"[underline cyan]{rtsp_url}",
-                )
                 if logger_is_enabled:
                     logger.debug(f"Captured screenshot for {rtsp_url}")
                 return file_path
@@ -188,14 +194,8 @@ def get_screenshot(rtsp_url: str, tries=1):
         # Try one more time in hope for luck.
         if tries < MAX_SCREENSHOT_TRIES:
             tries += 1
-            console.print(
-                f"[yellow]Retry to get a screenshot of the [underline]{rtsp_url}"
-            )
             return get_screenshot(rtsp_url, tries)
         else:
-            console.print(
-                f"[italic red]Missed screenshot of [underline]{rtsp_url}[/underline] - if you see this message a lot, consider reducing the number of screenshot threads",
-            )
             return
     except Exception as e:
         if logger_is_enabled:

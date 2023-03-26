@@ -1,34 +1,40 @@
 import collections
 import logging
-import platform
+import resource
 import time
+import json
 from pathlib import Path
 from queue import Queue
-
 import av
-from rich.panel import Panel
 
 from modules import attack, utils, worker
 from modules.cli.input import parser
 from modules.cli.output import console, progress_bar
 from modules.rtsp import Target
-from modules.utils import start_threads, wait_for
+from modules.utils import start_threads, wait_for, create_zip_archive
+from sqlalchemy import MetaData
+from modules.db import init_db
 
+metadata = MetaData()
+
+args = parser.parse_args()
+engine, Session = init_db(args.keep_database)
+
+metadata.create_all(engine)
 
 
 def main():
-    args = parser.parse_args()
+    _, _max = resource.getrlimit(resource.RLIMIT_NOFILE)
+    resource.setrlimit(resource.RLIMIT_NOFILE, (_max, _max))
 
     # Folders and files set up
-    start_datetime = time.strftime("%Y.%m.%d-%H.%M.%S")
-    report_folder = Path.cwd() / "reports" / start_datetime
+    report_folder = Path.cwd() / "reports" / time.strftime("%Y.%m.%d-%H.%M.%S")
+    log_folder = report_folder / "log"
 
+    attack.DB_SESSION = Session
     attack.PICS_FOLDER = report_folder / "pics"
     utils.RESULT_FILE = report_folder / "result.txt"
-
     utils.HTML_FILE = report_folder / "index.html"
-
-    log_folder = report_folder / "log"
 
     utils.ERROR_FILE_BRUTE_ROUTES = log_folder / "routes_error.txt"
     utils.ERROR_FILE_BRUTE_CREDS = log_folder / "creds_fail_error.txt"
@@ -61,8 +67,7 @@ def main():
             )
         )
         logger.addHandler(file_handler)
-    # This disables ValueError from av module printing to console, but this also
-    # means we won't get any logs from av, if they aren't FATAL or PANIC level.
+
     av.logging.set_level(av.logging.FATAL)
 
     # Progress output set up
@@ -73,8 +78,9 @@ def main():
         "[bright_green]Screenshoting...", total=0
     )
 
-    # Targets, routes, credentials and ports set up
-    targets = collections.deque(set(utils.load_txt(args.targets, "targets")))
+    targets = collections.deque(set(utils.load_comma_separated(args.targets_comma)))
+
+    # Prepare attack
     attack.ROUTES = utils.load_txt(args.routes, "routes")
     attack.CREDENTIALS = utils.load_txt(args.credentials, "credentials")
     attack.PORTS = args.ports
@@ -83,76 +89,33 @@ def main():
     brute_queue = Queue()
     screenshot_queue = Queue()
 
-    if platform.system() == "Linux":
-        import resource
-
-        _, _max = resource.getrlimit(resource.RLIMIT_NOFILE)
-        resource.setrlimit(resource.RLIMIT_NOFILE, (_max, _max))
-        console.print(f"[yellow]Temporary ulimit -n set to {_max}")
-
-    if args.debug:
-        logger.debug(f"Starting {args.check_threads} threads of worker.brute_routes")
-
     check_threads = start_threads(
         args.check_threads, worker.brute_routes, check_queue, brute_queue
     )
-
-    print("check threads")
-
-    if args.debug:
-        logger.debug(
-            f"Starting {args.brute_threads} threads of worker.brute_credentials"
-        )
-
     brute_threads = start_threads(
         args.brute_threads, worker.brute_credentials, brute_queue, screenshot_queue
     )
-
-    print("brute threads")
-
-    if args.debug:
-        logger.debug(
-            f"Starting {args.screenshot_threads} threads of worker.screenshot_targets"
-        )
-
     screenshot_threads = start_threads(
         args.screenshot_threads, worker.screenshot_targets, screenshot_queue
     )
 
-    print("screen threads")
-
-    console.print("[green]Starting...\n")
-
-    progress_bar.update(worker.CHECK_PROGRESS, total=len(targets))
-    progress_bar.start()
     while targets:
-        check_queue.put(Target(ip=targets.popleft(), timeout=args.timeout))
+        check_queue.put(Target(ip=targets.popleft(), timeout=args.timeout, proxy=args.proxy))
 
     wait_for(check_queue, check_threads)
-
-    print("Finish check threads ============================")
-    if args.debug:
-        logger.debug("Check queue and threads finished")
     wait_for(brute_queue, brute_threads)
-
-    print("Finish brute threads ============================")
-    if args.debug:
-        logger.debug("Brute queue and threads finished")
     wait_for(screenshot_queue, screenshot_threads)
 
-    print("Finish screen threads ============================")
-    if args.debug:
-        logger.debug("Screenshot queue and threads finished")
-
-    progress_bar.stop()
-
-    print()
     screenshots = list(attack.PICS_FOLDER.iterdir())
-    console.print(f"[green]Saved {len(screenshots)} screenshots")
-    console.print(
-        Panel(f"[bright_green]{str(report_folder)}", title="Report", expand=False),
-        justify="center",
-    )
+    folder_name = str(report_folder)
+    zip_file_name = folder_name + '.zip'
+
+    create_zip_archive(folder_name, zip_file_name)
+
+    print(json.dumps({
+        "archive": zip_file_name,
+        "screenshots": len(screenshots),
+    }))
 
 
 if __name__ == "__main__":

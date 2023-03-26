@@ -21,8 +21,8 @@ class CustomHelpFormatter(argparse.HelpFormatter):
 def file_path(value: Any):
     if Path(value).exists():
         return Path(value)
-    else:
-        raise argparse.ArgumentTypeError(f"{value} is not a valid path")
+    # else:
+    #     raise argparse.ArgumentTypeError(f"{value} is not a valid path")
 
 
 def port(value: Any):
@@ -42,14 +42,25 @@ parser.add_argument(
     "-t",
     "--targets",
     type=file_path,
-    required=True,
     help="the targets on which to scan for open RTSP streams",
+)
+parser.add_argument(
+    "-tc",
+    "--targets-comma",
+    type=str,
+    help="Comma separated targets",
+)
+parser.add_argument(
+    "-pr",
+    "--proxy",
+    type=str,
+    help="Proxy url i.e. socks5://user:password@192.168.0.1:2000",
 )
 parser.add_argument(
     "-p",
     "--ports",
     nargs="+",
-    default=[554],
+    default=[554, 8554],
     type=port,
     help="the ports on which to search for RTSP streams",
 )
@@ -94,4 +105,15 @@ parser.add_argument(
 parser.add_argument(
     "-T", "--timeout", default=2, type=int, help="the timeout to use for sockets"
 )
-parser.add_argument("-d", "--debug", action="store_true", help="enable the debug logs")
+parser.add_argument(
+    "-d",
+    "--debug",
+    action="store_true",
+    help="enable the debug logs"
+)
+parser.add_argument(
+    "-k",
+    "--keep-database",
+    action="store_true",
+    help="Keep database state"
+)

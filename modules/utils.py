@@ -1,10 +1,13 @@
 import ipaddress
 import logging
+import threading
 import re
+import zipfile
+import os
 from pathlib import Path
-from typing import List
+from queue import Queue
+from typing import Callable, List
 
-from modules.cli.output import console
 
 RESULT_FILE: Path
 HTML_FILE: Path
@@ -133,8 +136,21 @@ def load_txt(path: Path, name: str) -> List[str]:
         result = [
             target for line in get_lines(path) for target in parse_input_line(line)
         ]
-    console.print(f"[yellow]Loaded {len(result)} {name} from {path}")
     return result
+
+
+def load_comma_separated(values: str) -> List[str]:
+    values = values.strip()
+    values = values.split(",")
+
+    return [str(x).strip() for x in values]
+
+
+def wait_for(queue: Queue, threads: List[threading.Thread]):
+    """Waits for queue and then threads to finish."""
+    queue.join()
+    [queue.put(None) for _ in range(len(threads))]
+    [t.join() for t in threads]
 
 
 def get_lines(path: Path) -> List[str]:
@@ -177,3 +193,31 @@ def parse_input_line(input_line: str) -> List[str]:
     except ValueError:
         # If we get any non-ip value just ignore it
         return []
+
+
+def start_threads(number: int, target: Callable, *args) -> List[threading.Thread]:
+    threads = []
+    for _ in range(number):
+        thread = threading.Thread(target=target, args=args)
+        thread.daemon = True
+        threads.append(thread)
+        thread.start()
+    return threads
+
+
+def create_zip_archive(directory_name: str, zip_file_name: str) -> None:
+    # Raise an error if the specified directory does not exist
+    if not os.path.exists(directory_name):
+        raise FileNotFoundError(f"The directory '{directory_name}' does not exist.")
+
+    # Create a new zip file in write mode
+    with zipfile.ZipFile(zip_file_name, "w") as zip_file:
+
+        # Iterate over the files in the directory
+        for root, dirs, files in os.walk(directory_name):
+            for file in files:
+                # Create the full path of the file to add
+                file_path = os.path.join(root, file)
+
+                # Add the file to the archive
+                zip_file.write(file_path, os.path.relpath(file_path, directory_name))
