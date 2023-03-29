@@ -5,6 +5,7 @@ from ipaddress import ip_address
 from time import sleep
 from typing import List, Union
 from urllib.parse import urlparse
+
 from modules.packet import _digest_auth, _basic_auth
 from modules.utils import find
 
@@ -99,12 +100,12 @@ class Target:
     def is_authorized(self):
         return "200" in self.data
 
-    def connect(self, port: int = None):
+    def connect(self, result):
         if self.is_connected:
+            result.set('is_connect', True)
             return True
 
-        if port is None:
-            port = self.port
+        port = self.port
 
         self.packet = ""
         self.cseq = 0
@@ -137,17 +138,24 @@ class Target:
                 if socks_proxy:
                     socks_proxy.connect((str(self.ip), port))
                     self.socket = socks_proxy
+                    result.set('is_connect', True)
                 else:
                     self.socket = socket.create_connection((self.ip, port), self.timeout)
             except Exception as e:
+                print('====catch not comnnected===')
                 self.status = Status.from_exception(e)
                 self.last_error = e
 
                 retry += 1
-                sleep(1.5)
+                if retry == MAX_RETRIES:
+                    result.set('is_connect', False)
+                    raise e
+                else:
+                    sleep(1.5)
             else:
                 self.status = Status.CONNECTED
                 self.last_error = None
+                result.set('is_connect', True)
 
                 return True
 
@@ -157,7 +165,7 @@ class Target:
         if self.is_connected:
             self.socket.close()
 
-    def authorize(self, port=None, route=None, credentials=None):
+    def send_describe_request(self, port=None, route=None, credentials=None):
         if not self.is_connected:
             return False
 
@@ -180,7 +188,9 @@ class Target:
             self.last_error = e
             self.socket.close()
 
-            return False
+            raise e
+
+            # return False
 
         if not self.data:
             return False

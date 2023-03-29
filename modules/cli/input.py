@@ -3,7 +3,8 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_ROUTES = Path(__file__).parent / "../../routes.txt"
-DEFAULT_CREDENTIALS = Path(__file__).parent / "../../credentials.txt"
+DEFAULT_CREDENTIALS = Path(__file__).parent / "../../cred_short.txt"
+
 
 class CustomHelpFormatter(argparse.HelpFormatter):
     def __init__(self, prog):

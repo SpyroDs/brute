@@ -18,7 +18,7 @@ from modules.db import init_db
 metadata = MetaData()
 
 args = parser.parse_args()
-engine, Session = init_db(args.keep_database)
+engine, Session = init_db()
 
 metadata.create_all(engine)
 
@@ -100,7 +100,8 @@ def main():
     )
 
     while targets:
-        check_queue.put(Target(ip=targets.popleft(), timeout=args.timeout, proxy=args.proxy))
+        ip, port = targets.popleft().split(':')
+        check_queue.put(Target(ip=ip.strip(), port=int(port), timeout=args.timeout, proxy=args.proxy))
 
     wait_for(check_queue, check_threads)
     wait_for(brute_queue, brute_threads)

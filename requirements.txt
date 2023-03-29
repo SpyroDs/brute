@@ -3,4 +3,4 @@ Pillow==9.4.0
 rich==10.2.0
 sqlalchemy==2.0.7
 pysocks==1.7.1
-# socks==1.7.1
+pika==1.3.1
