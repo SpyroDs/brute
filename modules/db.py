@@ -1,5 +1,5 @@
-from sqlalchemy import Column, Integer, String, Boolean
-from sqlalchemy import create_engine, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, func
+from sqlalchemy import create_engine, UniqueConstraint, Index
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -7,10 +7,14 @@ from modules.rtsp import Target
 
 Base = declarative_base()
 
+
 class Result(Base):
     __tablename__ = 'rtsp_bruter_result'
 
     id = Column(Integer, primary_key=True)
+    brute_id = Column(String)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+
     ip_address = Column(String)
     port = Column(Integer)
     is_connect = Column(Boolean)
@@ -34,13 +38,24 @@ class Result(Base):
     screen = Column(String)
 
     _table_args__ = (
-        UniqueConstraint(ip_address, port, name='ip_port__idx')
+        UniqueConstraint(brute_id, ip_address, port, name='brute_id_ip_port__idx'),
+        Index('brute_id__idx', 'brute_id')
     )
+
+    def get_state(self):
+        state = {}
+        for key in ['id', 'ip_address', 'port', 'is_connect',
+                    'is_route', 'route', 'is_creds', 'creds', 'is_screen',
+                    'is_final', 'status', 'auth_method', 'last_error', 'cseq'
+                                                                       '']:
+            state[key] = getattr(self, key)
+        return state
 
     def set(self, field: str, value):
         setattr(self, field, value)
 
     def set_target_common_values(self, target: Target):
+        self.set('brute_id', str(target.brute_id))
         self.set('status', str(target.status.value))
         self.set('last_error', str(target.last_error))
         self.set('data', str(target.data))
@@ -51,7 +66,6 @@ class Result(Base):
 def init_db():
     engine = create_engine('sqlite:///bruter.db')
     session = sessionmaker(bind=engine)
-
 
     # Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)

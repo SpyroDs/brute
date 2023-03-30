@@ -1,37 +1,33 @@
 import collections
+import json
+import pickle
 import logging
 import resource
 import time
-import json
+import uuid
 from pathlib import Path
 from queue import Queue
 import av
 
 from modules import attack, utils, worker
 from modules.cli.input import parser
-from modules.cli.output import console, progress_bar
+from modules.cli.output import progress_bar
 from modules.rtsp import Target
 from modules.utils import start_threads, wait_for, create_zip_archive
 from sqlalchemy import MetaData
-from modules.db import init_db
+from modules.db import init_db, Result
 
 metadata = MetaData()
-
 args = parser.parse_args()
-engine, Session = init_db()
-
+engine, session = init_db()
 metadata.create_all(engine)
 
 
 def main():
-    _, _max = resource.getrlimit(resource.RLIMIT_NOFILE)
-    resource.setrlimit(resource.RLIMIT_NOFILE, (_max, _max))
-
     # Folders and files set up
     report_folder = Path.cwd() / "reports" / time.strftime("%Y.%m.%d-%H.%M.%S")
     log_folder = report_folder / "log"
 
-    attack.DB_SESSION = Session
     attack.PICS_FOLDER = report_folder / "pics"
     utils.RESULT_FILE = report_folder / "result.txt"
     utils.HTML_FILE = report_folder / "index.html"
@@ -72,40 +68,29 @@ def main():
 
     # Progress output set up
     worker.PROGRESS_BAR = progress_bar
-    worker.CHECK_PROGRESS = progress_bar.add_task("[bright_red]Checking...", total=0)
     worker.BRUTE_PROGRESS = progress_bar.add_task("[bright_yellow]Bruting...", total=0)
     worker.SCREENSHOT_PROGRESS = progress_bar.add_task(
         "[bright_green]Screenshoting...", total=0
     )
 
-    targets = collections.deque(set(utils.load_comma_separated(args.targets_comma)))
-
     # Prepare attack
     attack.ROUTES = utils.load_txt(args.routes, "routes")
     attack.CREDENTIALS = utils.load_txt(args.credentials, "credentials")
     attack.PORTS = args.ports
+    check_threads_num = args.check_threads
+    brute_threads_num = args.brute_threads
+    screenshot_thread_num = args.screenshot_threads
+    timeout = args.timeout
+    proxy = args.proxy
 
-    check_queue = Queue()
-    brute_queue = Queue()
-    screenshot_queue = Queue()
+    targets_list = collections.deque(set(utils.load_comma_separated(args.targets_comma)))
+    brute_id = str(uuid.uuid4())
+    targets = []
+    while targets_list:
+        ip, port = targets_list.popleft().split(':')
+        targets.append({"host": ip.strip(), "port": int(port)})
 
-    check_threads = start_threads(
-        args.check_threads, worker.brute_routes, check_queue, brute_queue
-    )
-    brute_threads = start_threads(
-        args.brute_threads, worker.brute_credentials, brute_queue, screenshot_queue
-    )
-    screenshot_threads = start_threads(
-        args.screenshot_threads, worker.screenshot_targets, screenshot_queue
-    )
-
-    while targets:
-        ip, port = targets.popleft().split(':')
-        check_queue.put(Target(ip=ip.strip(), port=int(port), timeout=args.timeout, proxy=args.proxy))
-
-    wait_for(check_queue, check_threads)
-    wait_for(brute_queue, brute_threads)
-    wait_for(screenshot_queue, screenshot_threads)
+    result = start_brute(brute_id, targets, check_threads_num, brute_threads_num, screenshot_thread_num, proxy, timeout)
 
     screenshots = list(attack.PICS_FOLDER.iterdir())
     folder_name = str(report_folder)
@@ -114,9 +99,47 @@ def main():
     create_zip_archive(folder_name, zip_file_name)
 
     print(json.dumps({
-        "archive": zip_file_name,
-        "screenshots": len(screenshots),
+        # "archive": zip_file_name,
+        "success": screenshots,
+        "results": result,
     }))
+
+
+def start_brute(brute_id: str, targets: [], check_threads_num=100, brute_threads_num=50, screenshot_thread_num=5,
+                proxy=None, timeout=2):
+    attack.DB_SESSION = session
+
+    report_folder = Path.cwd() / "reports" / time.strftime("%Y.%m.%d-%H.%M.%S")
+    log_folder = report_folder / "log"
+    attack.PICS_FOLDER = report_folder / "pics"
+    utils.create_folder(attack.PICS_FOLDER)
+
+    _, _max = resource.getrlimit(resource.RLIMIT_NOFILE)
+    resource.setrlimit(resource.RLIMIT_NOFILE, (_max, _max))
+
+    check_queue = Queue()
+    brute_queue = Queue()
+    screenshot_queue = Queue()
+
+    check_threads = start_threads(
+        check_threads_num, worker.brute_routes, check_queue, brute_queue
+    )
+    brute_threads = start_threads(
+        brute_threads_num, worker.brute_credentials, brute_queue, screenshot_queue
+    )
+    screenshot_threads = start_threads(
+        screenshot_thread_num, worker.screenshot_targets, screenshot_queue
+    )
+
+    for target in targets:
+        check_queue.put(Target(ip=target['host'], brute_id=brute_id, port=target['port'], timeout=timeout, proxy=proxy))
+
+    wait_for(check_queue, check_threads)
+    wait_for(brute_queue, brute_threads)
+    wait_for(screenshot_queue, screenshot_threads)
+
+    query = session().query(Result).filter(Result.brute_id.in_([brute_id]))
+    return [record.get_state() for record in query.all()]
 
 
 if __name__ == "__main__":

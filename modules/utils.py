@@ -24,6 +24,12 @@ reg = {
     "nonce": re.compile(r'nonce="(.*?)"'),
 }
 
+def defined(name):
+    try:
+        eval(name)
+    except NameError:
+        return False
+    return True
 
 def generate_html(path: Path):
     html = (
@@ -75,32 +81,37 @@ def append_request_log(msg: str):
 
 
 def append_error_brute_creds(ip_address: str):
-    with ERROR_FILE_BRUTE_CREDS.open("a") as f:
-        f.write(f"{ip_address}\n")
+    if defined('ERROR_FILE_BRUTE_CREDS'):
+        with ERROR_FILE_BRUTE_CREDS.open("a") as f:
+            f.write(f"{ip_address}\n")
 
 
 def append_error_brute_empty(ip_address: str):
-    with ERROR_FILE_BRUTE_CREDS_EMPTY.open("a") as f:
-        f.write(f"{ip_address}\n")
+    if defined('ERROR_FILE_BRUTE_CREDS_EMPTY'):
+        with ERROR_FILE_BRUTE_CREDS_EMPTY.open("a") as f:
+            f.write(f"{ip_address}\n")
 
 
 def append_error_brute_routes(ip_address: str):
-    with ERROR_FILE_BRUTE_ROUTES.open("a") as f:
-        f.write(f"{ip_address}\n")
+    if defined('ERROR_FILE_BRUTE_ROUTES'):
+        with ERROR_FILE_BRUTE_ROUTES.open("a") as f:
+            f.write(f"{ip_address}\n")
 
 
 def append_error_screenshot(ip_address: str):
-    with ERROR_FILE_SCREENSHOT.open("a") as f:
-        f.write(f"{ip_address}\n")
+    if defined('ERROR_FILE_SCREENSHOT'):
+        with ERROR_FILE_SCREENSHOT.open("a") as f:
+            f.write(f"{ip_address}\n")
 
 
 def append_result(pic_file: Path, rtsp_url: str):
     # Append to .txt result file
-    with RESULT_FILE.open("a") as f:
-        f.write(f"{rtsp_url}\n")
+    if defined('RESULT_FILE'):
+        with RESULT_FILE.open("a") as f:
+            f.write(f"{rtsp_url}\n")
 
     # Insert to .html gallery file
-    if pic_file.exists():
+    if defined('HTML_FILE') and pic_file.exists():
         with HTML_FILE.open("a") as f:
             f.write(
                 (

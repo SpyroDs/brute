@@ -82,7 +82,7 @@ parser.add_argument(
 parser.add_argument(
     "-ct",
     "--check-threads",
-    default=500,
+    default=100,
     type=int,
     help="the number of threads to brute-force the routes",
     metavar="N",
@@ -90,7 +90,7 @@ parser.add_argument(
 parser.add_argument(
     "-bt",
     "--brute-threads",
-    default=200,
+    default=50,
     type=int,
     help="the number of threads to brute-force the credentials",
     metavar="N",
@@ -112,9 +112,4 @@ parser.add_argument(
     action="store_true",
     help="enable the debug logs"
 )
-parser.add_argument(
-    "-k",
-    "--keep-database",
-    action="store_true",
-    help="Keep database state"
-)
+

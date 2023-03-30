@@ -15,7 +15,6 @@ from modules.rtsp import Target
 from modules.utils import start_threads, wait_for
 
 
-
 def main():
     args = parser.parse_args()
 

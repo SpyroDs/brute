@@ -36,6 +36,7 @@ class Status(Enum):
 
 class Target:
     __slots__ = (
+        "brute_id",
         "ip",
         "port",
         "credentials",
@@ -51,11 +52,13 @@ class Target:
         "cseq",
         "data",
         "proxy",
+
     )
 
     def __init__(
             self,
             ip: str,
+            brute_id: str,
             port: int = 554,
             timeout: int = 2,
             credentials: str = ":",
@@ -77,6 +80,7 @@ class Target:
         self.auth_method: AuthMethod = AuthMethod.NONE
         self.last_error: Union[Exception, None] = None
         self.realm: str = ""
+        self.brute_id: str = brute_id
         self.nonce: str = ""
         self.socket = None
         self.proxy = proxy
@@ -142,7 +146,6 @@ class Target:
                 else:
                     self.socket = socket.create_connection((self.ip, port), self.timeout)
             except Exception as e:
-                print('====catch not comnnected===')
                 self.status = Status.from_exception(e)
                 self.last_error = e
 

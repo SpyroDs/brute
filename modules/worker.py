@@ -33,6 +33,7 @@ def brute_routes(input_queue: Queue, output_queue: Queue) -> None:
                     db_result.set('is_final', True)
             except Exception as e:
                 append_error_brute_routes(target.ip)
+                db_result.set('is_final', False)
 
             db_result.set_target_common_values(target)
             session.commit()
@@ -57,6 +58,7 @@ def brute_credentials(input_queue: Queue, output_queue: Queue) -> None:
                     db_result.set('is_final', True)
             except Exception:
                 append_error_brute_creds(target.ip)
+                db_result.set('is_final', False)
 
             db_result.set_target_common_values(target)
             session.commit()
@@ -88,6 +90,7 @@ def screenshot_targets(input_queue: Queue) -> None:
             db_result.set('is_final', True)
         except Exception as e:
             db_result.set('is_screen', False)
+            db_result.set('is_final', False)
 
         db_result.set_target_common_values(target)
         session.commit()

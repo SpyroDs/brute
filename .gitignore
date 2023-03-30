@@ -1,7 +1,10 @@
 .idea
 reports
+venv
 ip.txt
 pass.txt
 routes.txt
 wordlist
 bruter.db
+test.py
+test_send.py

@@ -51,9 +51,9 @@ def get_result_record(target: Target) -> [Result, Session]:
     session = DB_SESSION()
     ip_address = target.ip
     port = target.port
-    result = session.query(Result).filter_by(ip_address=ip_address, port=port).first()
+    result = session.query(Result).filter_by(brute_id=target.brute_id, ip_address=ip_address, port=port).first()
     if not result:
-        result = Result(ip_address=ip_address, port=port)
+        result = Result(brute_id=target.brute_id, ip_address=ip_address, port=port)
         session.add(result)
         session.commit()
 
