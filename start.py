@@ -10,7 +10,7 @@ from queue import Queue
 import av
 
 from modules import attack, utils, worker
-from modules.cli.input import parser
+from modules.cli.input import parser, DEFAULT_ROUTES, DEFAULT_CREDENTIALS
 from modules.cli.output import progress_bar
 from modules.rtsp import Target
 from modules.utils import start_threads, wait_for, create_zip_archive
@@ -111,7 +111,12 @@ def start_brute(brute_id: str, targets: [], check_threads_num=100, brute_threads
 
     report_folder = Path.cwd() / "reports" / time.strftime("%Y.%m.%d-%H.%M.%S")
     log_folder = report_folder / "log"
+
     attack.PICS_FOLDER = report_folder / "pics"
+
+    attack.ROUTES = utils.load_txt(DEFAULT_ROUTES, "routes")
+    attack.CREDENTIALS = utils.load_txt(DEFAULT_CREDENTIALS, "credentials")
+
     utils.create_folder(attack.PICS_FOLDER)
 
     _, _max = resource.getrlimit(resource.RLIMIT_NOFILE)

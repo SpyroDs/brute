@@ -64,7 +64,6 @@ def attack_route(target: Target, result: Result):
     # If the stream responds positively to the dummy route, it means
     # it doesn't require (or respect the RFC) a route and the attack
     # can be skipped.
-
     ok = attack(target, result, route=DUMMY_ROUTE)
     if ok and any(code in target.data for code in ROUTE_OK_CODES):
         target.routes.append("/")
@@ -72,15 +71,14 @@ def attack_route(target: Target, result: Result):
         # Save results to db
         result.set('route', '/')
         result.set('is_route', True)
-
         return target
-
     # Otherwise, bruteforce the routes.
     trial = 0
     route_trial = result.route_trial
     for route in ROUTES:
         trial += 1
         result.set('route_trial', trial)
+
         if int(route_trial) > trial:
             continue
 

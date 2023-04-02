@@ -5,6 +5,7 @@ from start import start_brute
 
 QUEUE_NAME = 'rtsp_brute'
 
+#docker run --rm -it -p 15672:15672 -p 5672:5672 rabbitmq:3-management
 
 def callback(ch, method, properties, body):
     try:
