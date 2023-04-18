@@ -111,4 +111,10 @@ parser.add_argument(
     action="store_true",
     help="enable the debug logs"
 )
+parser.add_argument(
+    "-ns",
+    "--not-save-screenshots",
+    action="store_true",
+    help="Do not save screenshots to database"
+)
 

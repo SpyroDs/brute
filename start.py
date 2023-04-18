@@ -22,6 +22,7 @@ metadata.create_all(engine)
 
 def main():
     attack.logger_is_enabled = args.debug
+    worker.DO_NOT_SAVE_SCREENSHOTS = args.not_save_screenshots
     av.logging.set_level(av.logging.FATAL)
 
     if args.targets_ip_port:

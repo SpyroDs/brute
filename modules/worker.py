@@ -14,6 +14,7 @@ CHECK_PROGRESS: TaskID
 BRUTE_PROGRESS: TaskID
 SCREENSHOT_PROGRESS: TaskID
 LOCK = RLock()
+DO_NOT_SAVE_SCREENSHOTS = False
 
 
 def brute_routes(input_queue: Queue, output_queue: Queue) -> None:
@@ -79,8 +80,9 @@ def screenshot_targets(input_queue: Queue) -> None:
 
             if image:
                 with open(image, 'rb') as image_file:
-                    screenshot = base64.b64encode(image_file.read())
-                    db_result.set('screen', screenshot)
+                    if not DO_NOT_SAVE_SCREENSHOTS:
+                        screenshot = base64.b64encode(image_file.read())
+                        db_result.set('screen', screenshot)
                     db_result.set('is_screen', True)
                 with LOCK:
                     append_result(image, target_url)

@@ -10,9 +10,9 @@ python3 start.py -h
 192.168.0.2:554
 ```
 
-## Run with MySql
+## Run with MySql and do not save screenshots to DB (-ns)
 ```shell
-python3 start.py -ip ip.txt -du mysql://username:password@localhost:3306/bruter
+python3 start.py -ns -ip ip.txt -du mysql://username:password@localhost:3306/bruter
 ```
 
 ## Run with Sqlite
