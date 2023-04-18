@@ -1,11 +1,14 @@
+import os
 import pika
 import json
 
 from start import start_brute
 
-QUEUE_NAME = 'rtsp_brute'
+QUEUE_NAME = os.getenv('QUEUE_NAME') if os.getenv('QUEUE_NAME') else 'rtsp_brute'
+HOST = os.getenv('HOST') if os.getenv('HOST') else 'localhost'
 
-#docker run --rm -it -p 15672:15672 -p 5672:5672 rabbitmq:3-management
+
+# docker run --rm -it -p 15672:15672 -p 5672:5672 rabbitmq:3-management
 
 def callback(ch, method, properties, body):
     try:
@@ -28,6 +31,9 @@ def callback(ch, method, properties, body):
 connection = pika.BlockingConnection(pika.ConnectionParameters(host="localhost"))
 channel = connection.channel()
 channel.queue_declare(queue=QUEUE_NAME)
-print(" [*] Waiting for messages. To exit press Ctrl+C")
-channel.basic_consume(queue=QUEUE_NAME, on_message_callback=callback, auto_ack=True)
+channel.basic_consume(
+    queue=QUEUE_NAME,
+    on_message_callback=callback,
+    auto_ack=True
+)
 channel.start_consuming()

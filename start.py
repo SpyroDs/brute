@@ -1,7 +1,5 @@
 import collections
 import json
-import pickle
-import logging
 import resource
 import time
 import uuid
@@ -11,95 +9,47 @@ import av
 
 from modules import attack, utils, worker
 from modules.cli.input import parser, DEFAULT_ROUTES, DEFAULT_CREDENTIALS
-from modules.cli.output import progress_bar
 from modules.rtsp import Target
-from modules.utils import start_threads, wait_for, create_zip_archive
+from modules.utils import start_threads, wait_for
 from sqlalchemy import MetaData
 from modules.db import init_db, Result
 
 metadata = MetaData()
 args = parser.parse_args()
-engine, session = init_db()
+
+engine, session = init_db(args.db_url)
 metadata.create_all(engine)
 
 
 def main():
-    # Folders and files set up
-    report_folder = Path.cwd() / "reports" / time.strftime("%Y.%m.%d-%H.%M.%S")
-    log_folder = report_folder / "log"
-
-    attack.PICS_FOLDER = report_folder / "pics"
-    utils.RESULT_FILE = report_folder / "result.txt"
-    utils.HTML_FILE = report_folder / "index.html"
-
-    utils.ERROR_FILE_BRUTE_ROUTES = log_folder / "routes_error.txt"
-    utils.ERROR_FILE_BRUTE_CREDS = log_folder / "creds_fail_error.txt"
-    utils.ERROR_FILE_BRUTE_CREDS_EMPTY = log_folder / "creds_empty_error.txt"
-    utils.ERROR_FILE_SCREENSHOT = log_folder / "screenshots_error.txt"
-    utils.REQUEST_LOG_FILE = log_folder / "request_log.txt"
-
-    utils.create_folder(attack.PICS_FOLDER)
-
-    # Errors
-    utils.create_folder(log_folder)
-    utils.create_file(utils.RESULT_FILE)
-    utils.create_file(utils.ERROR_FILE_BRUTE_ROUTES)
-    utils.create_file(utils.ERROR_FILE_BRUTE_CREDS)
-    utils.create_file(utils.ERROR_FILE_BRUTE_CREDS_EMPTY)
-    utils.create_file(utils.ERROR_FILE_SCREENSHOT)
-    utils.create_file(utils.REQUEST_LOG_FILE)
-
-    utils.generate_html(utils.HTML_FILE)
-
-    # Logging module set up
-    logger = logging.getLogger()
     attack.logger_is_enabled = args.debug
-    if args.debug:
-        logger.setLevel(logging.DEBUG)
-        file_handler = logging.FileHandler(report_folder / "debug.log")
-        file_handler.setFormatter(
-            logging.Formatter(
-                "[%(asctime)s] [%(levelname)s] [%(threadName)s] [%(funcName)s] %(message)s"
-            )
-        )
-        logger.addHandler(file_handler)
-
     av.logging.set_level(av.logging.FATAL)
 
-    # Progress output set up
-    worker.PROGRESS_BAR = progress_bar
-    worker.BRUTE_PROGRESS = progress_bar.add_task("[bright_yellow]Bruting...", total=0)
-    worker.SCREENSHOT_PROGRESS = progress_bar.add_task(
-        "[bright_green]Screenshoting...", total=0
-    )
+    if args.targets_ip_port:
+        targets_list = collections.deque(set(utils.load_txt(args.targets_ip_port, "targets")))
+    else:
+        targets_list = collections.deque(set(utils.load_txt(args.targets, "targets")))
 
-    # Prepare attack
-    attack.ROUTES = utils.load_txt(args.routes, "routes")
-    attack.CREDENTIALS = utils.load_txt(args.credentials, "credentials")
-    attack.PORTS = args.ports
-    check_threads_num = args.check_threads
-    brute_threads_num = args.brute_threads
-    screenshot_thread_num = args.screenshot_threads
-    timeout = args.timeout
-    proxy = args.proxy
-
-    targets_list = collections.deque(set(utils.load_comma_separated(args.targets_comma)))
     brute_id = str(uuid.uuid4())
     targets = []
     while targets_list:
-        ip, port = targets_list.popleft().split(':')
+        unpacked = targets_list.popleft().split(':')
+        ip, port = unpacked
         targets.append({"host": ip.strip(), "port": int(port)})
 
-    result = start_brute(brute_id, targets, check_threads_num, brute_threads_num, screenshot_thread_num, proxy, timeout)
+    result = start_brute(
+        brute_id,
+        targets,
+        args.check_threads,
+        args.brute_threads,
+        args.screenshot_threads,
+        args.proxy,
+        args.timeout
+    )
 
     screenshots = list(attack.PICS_FOLDER.iterdir())
-    folder_name = str(report_folder)
-    zip_file_name = folder_name + '.zip'
-
-    create_zip_archive(folder_name, zip_file_name)
 
     print(json.dumps({
-        # "archive": zip_file_name,
         "success": screenshots,
         "results": result,
     }))
@@ -110,10 +60,8 @@ def start_brute(brute_id: str, targets: [], check_threads_num=100, brute_threads
     attack.DB_SESSION = session
 
     report_folder = Path.cwd() / "reports" / time.strftime("%Y.%m.%d-%H.%M.%S")
-    log_folder = report_folder / "log"
 
     attack.PICS_FOLDER = report_folder / "pics"
-
     attack.ROUTES = utils.load_txt(DEFAULT_ROUTES, "routes")
     attack.CREDENTIALS = utils.load_txt(DEFAULT_CREDENTIALS, "credentials")
 

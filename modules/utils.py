@@ -6,8 +6,7 @@ import zipfile
 import os
 from pathlib import Path
 from queue import Queue
-from typing import Callable, List
-
+from typing import Callable, List, Union, Any
 
 RESULT_FILE: Path
 HTML_FILE: Path
@@ -150,13 +149,6 @@ def load_txt(path: Path, name: str) -> List[str]:
     return result
 
 
-def load_comma_separated(values: str) -> List[str]:
-    values = values.strip()
-    values = values.split(",")
-
-    return [str(x).strip() for x in values]
-
-
 def wait_for(queue: Queue, threads: List[threading.Thread]):
     """Waits for queue and then threads to finish."""
     queue.join()
@@ -168,7 +160,7 @@ def get_lines(path: Path) -> List[str]:
     return path.read_text().splitlines()
 
 
-def parse_input_line(input_line: str) -> List[str]:
+def parse_input_line(input_line: str) -> Union[list[str], str, list[Any]]:
     """
     Parse input line and return list with IPs.
 
@@ -196,6 +188,13 @@ def parse_input_line(input_line: str) -> List[str]:
         elif "/" in input_line:
             network = ipaddress.ip_network(input_line)
             return [str(ip) for ip in network]
+
+        # IP:PORT
+        elif ":" in input_line:
+            ip, port = input_line.split(':')
+            ipaddress.ip_network(ip)
+
+            return [str(input_line).strip()]
 
         # Input is a single ip ("1.1.1.1"):
         else:

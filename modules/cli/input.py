@@ -46,10 +46,17 @@ parser.add_argument(
     help="the targets on which to scan for open RTSP streams",
 )
 parser.add_argument(
-    "-tc",
-    "--targets-comma",
+    "-ip",
+    "--targets-ip-port",
+    type=file_path,
+    help="IP and port targets, separated by :",
+)
+parser.add_argument(
+    "-du",
+    "--db-url",
     type=str,
-    help="Comma separated targets",
+    default="sqlite:///bruter.db",
+    help="Database url",
 )
 parser.add_argument(
     "-pr",
