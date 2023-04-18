@@ -1,5 +1,4 @@
 import collections
-import json
 import resource
 import time
 import uuid
@@ -17,7 +16,7 @@ from modules.db import init_db, Result
 metadata = MetaData()
 args = parser.parse_args()
 
-engine, session = init_db(args.db_url)
+engine, session = init_db(args.db_url, args.debug)
 metadata.create_all(engine)
 
 
@@ -30,12 +29,15 @@ def main():
     else:
         targets_list = collections.deque(set(utils.load_txt(args.targets, "targets")))
 
-    brute_id = str(uuid.uuid4())
+    brute_id = args.brute_id if args.brute_id else str(uuid.uuid4())
     targets = []
     while targets_list:
         unpacked = targets_list.popleft().split(':')
         ip, port = unpacked
         targets.append({"host": ip.strip(), "port": int(port)})
+
+    print("Prepared targets: " + str(len(targets)))
+    print("Brute ID: " + brute_id)
 
     result = start_brute(
         brute_id,
@@ -44,27 +46,30 @@ def main():
         args.brute_threads,
         args.screenshot_threads,
         args.proxy,
-        args.timeout
+        args.timeout,
+        False
     )
 
     screenshots = list(attack.PICS_FOLDER.iterdir())
 
-    print(json.dumps({
-        "success": screenshots,
-        "results": result,
-    }))
+    print("Bruteforce is finished. \nSuccess screenshots: " + str(len(screenshots)))
 
 
-def start_brute(brute_id: str, targets: [], check_threads_num=100, brute_threads_num=50, screenshot_thread_num=5,
-                proxy=None, timeout=2):
+def start_brute(
+        brute_id: str,
+        targets: [],
+        check_threads_num=100,
+        brute_threads_num=50,
+        screenshot_thread_num=5,
+        proxy=None,
+        timeout=2,
+        return_full_result=False):
+
     attack.DB_SESSION = session
-
     report_folder = Path.cwd() / "reports" / time.strftime("%Y.%m.%d-%H.%M.%S")
-
     attack.PICS_FOLDER = report_folder / "pics"
     attack.ROUTES = utils.load_txt(DEFAULT_ROUTES, "routes")
     attack.CREDENTIALS = utils.load_txt(DEFAULT_CREDENTIALS, "credentials")
-
     utils.create_folder(attack.PICS_FOLDER)
 
     _, _max = resource.getrlimit(resource.RLIMIT_NOFILE)
@@ -92,7 +97,11 @@ def start_brute(brute_id: str, targets: [], check_threads_num=100, brute_threads
     wait_for(screenshot_queue, screenshot_threads)
 
     query = session().query(Result).filter(Result.brute_id.in_([brute_id]))
-    return [record.get_state() for record in query.all()]
+
+    if return_full_result:
+        return [record.get_state() for record in query.all()]
+    else:
+        return True
 
 
 if __name__ == "__main__":

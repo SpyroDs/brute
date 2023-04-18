@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String,Text, Boolean, DateTime, BLOB, func
+import logging
+from sqlalchemy import Column, Integer, String,Text, Boolean, DateTime, func
 from sqlalchemy import create_engine, UniqueConstraint, Index
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -34,8 +35,8 @@ class Result(Base):
     auth_method = Column(String(30))
     last_error = Column(Text(2000))
     cseq = Column(Integer)
-    data = Column(Text(5000))
-    screen = Column(Text(10000))
+    data = Column(Text(length=4294967295))
+    screen = Column(Text(length=4294967295))
 
     _table_args__ = (
         UniqueConstraint(brute_id, ip_address, port, name='brute_id_ip_port__idx'),
@@ -63,8 +64,9 @@ class Result(Base):
         self.set('cseq', target.cseq)
 
 
-def init_db(url):
-    engine = create_engine(url, echo=True)
+def init_db(url, debug):
+    engine = create_engine(url, echo=False)
+    logging.getLogger('sqlalchemy').setLevel(logging.INFO if debug else logging.ERROR)
     session = sessionmaker(bind=engine)
 
     # Base.metadata.drop_all(bind=engine)
