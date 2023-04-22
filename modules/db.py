@@ -47,8 +47,7 @@ class Result(Base):
         state = {}
         for key in ['id', 'ip_address', 'port', 'is_connect',
                     'is_route', 'route', 'is_creds', 'creds', 'is_screen',
-                    'is_final', 'status', 'auth_method', 'last_error', 'cseq'
-                                                                       '']:
+                    'is_final', 'status', 'auth_method', 'last_error', 'cseq', 'screen']:
             state[key] = getattr(self, key)
         return state
 
