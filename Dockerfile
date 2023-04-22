@@ -2,7 +2,7 @@ FROM  ubuntu
 WORKDIR /app
 
 RUN apt-get update
-RUN apt-get -y install python3-pip
+RUN apt-get -y install python3-pip mysql-client libmysqlclient-dev
 RUN pip3 install --no-cache --upgrade pip setuptools
 
 COPY requirements.txt ./

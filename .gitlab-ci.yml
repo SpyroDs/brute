@@ -9,3 +9,4 @@ Build and publish Docker image:
   script:
     - docker build -t ${CI_REGISTRY_IMAGE}/rtsp_bruter:latest  .
     - docker push ${CI_REGISTRY_IMAGE}/rtsp_bruter:latest
+

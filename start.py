@@ -22,7 +22,6 @@ metadata.create_all(engine)
 
 def main():
     attack.logger_is_enabled = args.debug
-    worker.DO_NOT_SAVE_SCREENSHOTS = args.not_save_screenshots
     av.logging.set_level(av.logging.FATAL)
 
     if args.targets_ip_port:
@@ -48,7 +47,8 @@ def main():
         args.screenshot_threads,
         args.proxy,
         args.timeout,
-        False
+        False,
+        not args.not_save_screenshots
     )
 
     screenshots = list(attack.PICS_FOLDER.iterdir())
@@ -64,8 +64,10 @@ def start_brute(
         screenshot_thread_num=5,
         proxy=None,
         timeout=2,
-        return_full_result=False):
-
+        return_full_result=False,
+        save_screenshots_to_db=False
+):
+    worker.SAVE_SCREENSHOTS_DB = save_screenshots_to_db
     attack.DB_SESSION = session
     report_folder = Path.cwd() / "reports" / time.strftime("%Y.%m.%d-%H.%M.%S")
     attack.PICS_FOLDER = report_folder / "pics"
