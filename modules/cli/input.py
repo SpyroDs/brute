@@ -40,12 +40,6 @@ parser = argparse.ArgumentParser(
     formatter_class=fmt,
 )
 parser.add_argument(
-    "-t",
-    "--targets",
-    type=file_path,
-    help="the targets on which to scan for open RTSP streams",
-)
-parser.add_argument(
     "-ip",
     "--targets-ip-port",
     type=file_path,
@@ -59,18 +53,16 @@ parser.add_argument(
     help="Database url",
 )
 parser.add_argument(
+    "-id",
+    "--brute-id",
+    type=str,
+    help="Brute id to finish stopped or broken brute",
+)
+parser.add_argument(
     "-pr",
     "--proxy",
     type=str,
     help="Proxy url i.e. socks5://user:password@192.168.0.1:2000",
-)
-parser.add_argument(
-    "-p",
-    "--ports",
-    nargs="+",
-    default=[554, 8554],
-    type=port,
-    help="the ports on which to search for RTSP streams",
 )
 parser.add_argument(
     "-r",
@@ -118,5 +110,11 @@ parser.add_argument(
     "--debug",
     action="store_true",
     help="enable the debug logs"
+)
+parser.add_argument(
+    "-ns",
+    "--not-save-screenshots",
+    action="store_true",
+    help="Do not save screenshots to database"
 )
 

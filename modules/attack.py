@@ -33,6 +33,7 @@ CREDENTIALS_OK_CODES = ["RTSP/1.0 200", "RTSP/1.0 404", "RTSP/2.0 200", "RTSP/2.
 
 logger = logging.getLogger()
 logger_is_enabled = True
+not_save_screenshots = False
 
 
 def attack(target: Target, result: Result, route=None, credentials=None) -> bool:
