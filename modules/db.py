@@ -64,7 +64,7 @@ class Result(Base):
 
 
 def init_db(url, debug):
-    engine = create_engine(url, echo=False)
+    engine = create_engine(url, echo=False,  pool_size=50, pool_timeout=60)
     logging.getLogger('sqlalchemy').setLevel(logging.INFO if debug else logging.ERROR)
     session = sessionmaker(bind=engine)
 
